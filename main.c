@@ -9,7 +9,7 @@
 #include"displayer.h"
 // #include"M24C02.h"
 #include"EXT.h"
-// #include"uart1.h"
+#include"uart1.h"
 
 code unsigned long SysClock=11059200;    
 /*全局变量
@@ -28,7 +28,7 @@ uchar code music1[] ={    //音乐代码，歌曲为《同一首歌》，格式为: 音符, 节拍, 音
 0x00,0x00};
 uchar code table[10]={0x97,0xcf,0xe7,0x85,0xef,0xc7,0xa5,0xbd,0xb5,0xad};
 uchar pd[]={1,2,3,4,5,6,7,8};//初始化密码
-uchar temp_pd[8];
+// uchar pd_in[8];
 uchar display=0;
 
 char h1,h2,m1,m2,s1,s2;
@@ -77,14 +77,17 @@ void My1S_callback(){
             SetDisplayerArea(0,pd_pos);
             Seg7Print(pd_in[0],pd_in[1],pd_in[2],pd_in[3],pd_in[4],pd_in[5],pd_in[6],pd_in[7]);
         }
-    }else{
+    }else if(display==2){
         if(ch_pos==0){
             SetDisplayerArea(0,1);
             Seg7Print(0x0a,0x0a,0,0,0,0,0,0);
         }else{
             SetDisplayerArea(0,ch_pos);
-            Seg7Print(temp_pd[0],temp_pd[1],temp_pd[2],temp_pd[3],temp_pd[4],temp_pd[5],temp_pd[6],temp_pd[7]);
+            Seg7Print(pd_in[0],pd_in[1],pd_in[2],pd_in[3],pd_in[4],pd_in[5],pd_in[6],pd_in[7]);
         }
+    }else{
+        SetDisplayerArea(0,7);
+        Seg7Print(10,10,10,10,10,10,10,10);//error
     }
     // if(flag_pwm==1){
     //     SetPWM(0,30,0,0);
@@ -98,6 +101,7 @@ void My1S_callback(){
         counter=0;
         // SetBeep(3500,100);
         deadlock=1;//上锁
+        display=3;
     }
     if(deadlock){
         timecounter++;
@@ -112,13 +116,13 @@ void My1S_callback(){
     }
 
 
-    //验证代码逻辑
+    //验证密码逻辑
     if(pd_pos==8){
         //验证密码是否正确
         uchar flag_temp=1;
         uchar i;
         for(i=0;i<8;i++){
-            if(pd_in[i]!=pd[i]){flag_temp=0;break;}
+            if(pd_in[i]!=pd[i])flag_temp=0;
 						pd_in[i]=0;
         }
         flag_pd_right=flag_temp;
@@ -126,6 +130,7 @@ void My1S_callback(){
             //如果密码错误
             counter++;
             pd_pos=0;
+            Uart1Print(&counter,1);
         }else{
             //如果密码正确
             SetPWM(20,30,0,0);
@@ -154,13 +159,15 @@ void My1S_callback(){
         }
     }
     if(ch_pos==8){
-        for(;temp_pos<10;temp_pos++)
-        pd[temp_pos]=temp_pd[temp_pos];
+        for(;temp_pos<10;temp_pos++){
+        pd[temp_pos]=pd_in[temp_pos];
+        pd_in[temp_pos]=0;
+        }
         temp_pos=0;
         ch_pos=0;
         admin=0;
         display=0;//显示时间
-        // Uart1Print(pd,8);//把pd中的值看看
+        Uart1Print(pd,8);//把pd中的值看看
     }
 }
 
@@ -217,7 +224,7 @@ void MyIR_CB(){
                         }
                     }
                     if(temp!=10)
-                    temp_pd[ch_pos++]=temp;
+                    pd_in[ch_pos++]=temp;
                 }
             }
         }
@@ -246,7 +253,7 @@ int main(){
     /*开始:显示当前时间
     */
     DS1302Init(InitTime);
-    // Uart1Init(1200);
+    Uart1Init(1200);
     BeepInit();
 	DisplayerInit();
     MusicPlayerInit();
