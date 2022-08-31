@@ -21,14 +21,9 @@ uchar code music1[] ={    //音乐代码，歌曲为《同一首歌》，格式为: 音符, 节拍, 音
 0x22,0x10,0x23,0x18,	 //个位代表简谱的音符，例如0x15代表低八度的S0，0x21代表中八度的DO。
 0x24,0x08,0x23,0x10,	 //节拍则是代表音长，例如：0x10代表一拍，0x20代表两拍，0x05代表1/2拍
 0x21,0x10,0x22,0x20,
-0x21,0x10,0x16,0x10,
-0x21,0x40,0x15,0x20,
-0x21,0x10,0x22,0x10,
-0x23,0x10,0x23,0x08,
 0x00,0x00};
 uchar code table[10]={0x97,0xcf,0xe7,0x85,0xef,0xc7,0xa5,0xbd,0xb5,0xad};
 uchar pd[]={1,2,3,4,5,6,7,8};//初始化密码
-// uchar pd_in[8];
 uchar display=0;
 
 char h1,h2,m1,m2,s1,s2;
@@ -89,17 +84,14 @@ void My1S_callback(){
         SetDisplayerArea(0,7);
         Seg7Print(10,10,10,10,10,10,10,10);//error
     }
-    // if(flag_pwm==1){
-    //     SetPWM(0,30,0,0);
-    //     flag_pwm=0;
-    // }
+
 
 
 
     //deadlock 逻辑
     if(counter==3){
         counter=0;
-        // SetBeep(3500,100);
+        SetBeep(3000,100);
         deadlock=1;//上锁
         display=3;
     }
@@ -110,6 +102,7 @@ void My1S_callback(){
         timecounter=0;
         deadlock=0;//解锁
         flag_wait_pd=1;//回到初态
+        display=0;
     }
     if(timecounter==180){
         counter=0;
@@ -130,17 +123,18 @@ void My1S_callback(){
             //如果密码错误
             counter++;
             pd_pos=0;
+            SetBeep(2000,40);
             Uart1Print(&counter,1);
         }else{
             //如果密码正确
-            SetPWM(20,30,0,0);
+            SetPWM(50,30,0,0);
 
-            // SetMusic(100,0xFC,music1,sizeof(music1),enumMscNull);
             display=0;//显示时间
             pd_pos=0;
             flag_wait_pd=0;//等待
             //把密码清零,方便后续显示
             admin=1;//标志特权位
+            admin_time=0;
         }
     }
 
@@ -152,10 +146,13 @@ void My1S_callback(){
         if(admin_time==180){
             admin=0;
             admin_time=0;//只有三分钟时间修改密码
-            SetPWM(0,30,0,0);//三分钟后关闭电机
             display=0;
             ch_pos=0;
             temp_pos=0;
+        }
+        if(admin_time==10){
+            SetPWM(0,0,0,0);//十秒后关闭电机
+
         }
     }
     if(ch_pos==8){
@@ -176,12 +173,9 @@ void My1S_callback(){
 
 
 
-
-
-
 void MyIR_CB(){
     unsigned char rxd=IRarr[3];
-    // SetBeep(1500,20);
+    SetBeep(1500,20);
     if(deadlock==0){
         if(flag_wait_pd==0){
             if(rxd==0x5d){
@@ -256,11 +250,11 @@ int main(){
     EXTInit(enumEXTPWM);
     PdInit();
 
+    SetMusic(180,0xFA,music1,sizeof(music1),enumMscNull);
 
 	SetDisplayerArea(0,7);
     SetIrRxd(IRarr,4);
     SetEventCallBack(enumEventSys1S, My1S_callback);
-    // SetEventCallBack(enumEventSys1S, Deadlock_CB);
     SetEventCallBack(enumEventIrRxd,MyIR_CB);
     MySTC_Init();
     while(1){
@@ -269,6 +263,3 @@ int main(){
 }
 
 //或许根本没有什么事件,只是每隔一段时间检查一下,或许是使用中断
-
-// 0000 0111
-// 1111 1000 0001 1111
