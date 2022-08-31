@@ -161,6 +161,7 @@ void My1S_callback(){
     if(ch_pos==8){
         for(;temp_pos<10;temp_pos++){
         pd[temp_pos]=pd_in[temp_pos];
+        NVM_Write(temp_pos,pd_in[temp_pos]);//将代码写入NVM
         pd_in[temp_pos]=0;
         }
         temp_pos=0;
@@ -231,23 +232,16 @@ void MyIR_CB(){
     }
 }
 
-/*
-void Deadlock_CB(){
-    if(counter==3){
-        counter=0;
-        SetBeep(3500,1000);
-        deadlock=1;//上锁
+
+void PdInit(){
+    for(temp_pos=0;temp_pos<8;temp_pos++){
+        pd[temp_pos]=NVM_Read(temp_pos);
     }
-    if(deadlock){
-        timecounter++;
-    }
-    if(timecounter==60){
-        timecounter=0;
-        deadlock=0;//解锁
-        flag_wait_pd=1;//回到初态
-    }
+    temp_pos=0;
+    Uart1Print(pd,8);
 }
-*/
+
+
 
 int main(){
     /*开始:显示当前时间
@@ -260,6 +254,8 @@ int main(){
 	SetPlayerMode(enumModePlay);
     IrInit(NEC_R05d);
     EXTInit(enumEXTPWM);
+    PdInit();
+
 
 	SetDisplayerArea(0,7);
     SetIrRxd(IRarr,4);
