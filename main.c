@@ -56,9 +56,15 @@ void My1S_callback(){
 	h1 = time.hour>>4;		h2 = time.hour&0x0f;
 	m1 = time.minute>>4;	m2 = time.minute&0x0f;
 	s1 = time.second>>4;	s2 = time.second&0x0f;
-    if(display==0)				       
+    if(display==0){
+        SetDisplayerArea(0,7);				       
 	    Seg7Print(h1,h2,10,m1,m2,10,s1,s2);
+    }
     else{
+        if(pd_pos==0){
+            SetDisplayerArea(0,1);
+            Seg7Print(15,15,0,0,0,0,0,0);
+        }
         SetDisplayerArea(0,pd_pos);
         Seg7Print(pd_in[0],pd_in[1],pd_in[2],pd_in[3],pd_in[4],pd_in[5],pd_in[6],pd_in[7]);
     }
@@ -72,7 +78,7 @@ void My1S_callback(){
     //deadlock 逻辑
     if(counter==3){
         counter=0;
-        SetBeep(2500,2);
+        SetBeep(3500,100);
         deadlock=1;//上锁
     }
     if(deadlock){
@@ -83,10 +89,14 @@ void My1S_callback(){
         deadlock=0;//解锁
         flag_wait_pd=1;//回到初态
     }
+    if(timecounter==180){
+        counter=0;
+    }
 }
 
 void MyIR_CB(){
     unsigned char rxd=IRarr[3];
+    SetBeep(1500,20);
     if(deadlock==0){
         if(flag_wait_pd==0){
             if(rxd==0x5d){
@@ -94,7 +104,15 @@ void MyIR_CB(){
                 flag_wait_pd=1;
                 display=1;//此时显示密码
             }
-        }else{
+        }
+        else{
+            if(rxd==0x5d){
+                //退出解锁状态
+                pd_pos=0;
+                flag_wait_pd=0;
+                display=0;
+                if(pd_pos==8)counter++;
+            }
             //进入解锁状态
             if(pd_pos!=8){
                 unsigned char temp=0;
@@ -103,6 +121,7 @@ void MyIR_CB(){
                         break;
                     }
                 }
+                if(temp!=10)
                 pd_in[pd_pos++]=temp;
             }
             else{
@@ -123,16 +142,18 @@ void MyIR_CB(){
                     SetPWM(20,30,0,0);
                     flag_pwm=1;
                     SetMusic(100,0xFC,music1,sizeof(music1),enumMscNull);
+                    display=0;//显示时间
                 }
             }
         }
     }
 }
 
+/*
 void Deadlock_CB(){
     if(counter==3){
         counter=0;
-        SetBeep(2500,100);
+        SetBeep(3500,1000);
         deadlock=1;//上锁
     }
     if(deadlock){
@@ -144,6 +165,7 @@ void Deadlock_CB(){
         flag_wait_pd=1;//回到初态
     }
 }
+*/
 
 int main(){
     /*开始:显示当前时间
