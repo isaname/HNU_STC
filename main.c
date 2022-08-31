@@ -63,10 +63,11 @@ void My1S_callback(){
     else{
         if(pd_pos==0){
             SetDisplayerArea(0,1);
-            Seg7Print(15,15,0,0,0,0,0,0);
+            Seg7Print(0x0a,0x0a,0,0,0,0,0,0);
+        }else{
+            SetDisplayerArea(0,pd_pos);
+            Seg7Print(pd_in[0],pd_in[1],pd_in[2],pd_in[3],pd_in[4],pd_in[5],pd_in[6],pd_in[7]);
         }
-        SetDisplayerArea(0,pd_pos);
-        Seg7Print(pd_in[0],pd_in[1],pd_in[2],pd_in[3],pd_in[4],pd_in[5],pd_in[6],pd_in[7]);
     }
     if(flag_pwm==1){
         SetPWM(0,30,0,0);
@@ -91,6 +92,33 @@ void My1S_callback(){
     }
     if(timecounter==180){
         counter=0;
+    }
+
+
+    //验证代码逻辑
+    if(pd_pos==8){
+        //验证密码是否正确
+        uchar flag_temp=1;
+        uchar i;
+        for(i=0;i<8;i++){
+            if(pd_in[i]!=pd[i]){flag_temp=0;break;}
+						pd_in[i]=0;
+        }
+        flag_pd_right=flag_temp;
+        if(flag_pd_right==0){
+            //如果密码错误
+            counter++;
+            pd_pos=0;
+        }else{
+            //如果密码正确
+            SetPWM(20,30,0,0);
+            flag_pwm=1;
+            SetMusic(100,0xFC,music1,sizeof(music1),enumMscNull);
+            display=0;//显示时间
+            pd_pos=0;
+            flag_wait_pd=0;//等待
+            //把密码清零,方便后续显示
+        }
     }
 }
 
@@ -123,27 +151,6 @@ void MyIR_CB(){
                 }
                 if(temp!=10)
                 pd_in[pd_pos++]=temp;
-            }
-            else{
-                //验证
-                uchar flag_temp=1;
-                uchar i;
-                for(i=0;i<8;i++){
-                    if(pd_in[i]!=pd[i]){flag_temp=0;break;}
-
-                }
-                flag_pd_right=flag_temp;
-                if(flag_pd_right==0){
-                    //如果密码错误
-                    counter++;
-					pd_pos=0;
-                }else{
-                    //如果密码正确
-                    SetPWM(20,30,0,0);
-                    flag_pwm=1;
-                    SetMusic(100,0xFC,music1,sizeof(music1),enumMscNull);
-                    display=0;//显示时间
-                }
             }
         }
     }
