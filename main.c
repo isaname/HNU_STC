@@ -7,8 +7,9 @@
 #include"Beep.h"
 #include"music.h"
 #include"displayer.h"
-#include"M24C02.h"
+// #include"M24C02.h"
 #include"EXT.h"
+// #include"uart1.h"
 
 code unsigned long SysClock=11059200;    
 /*全局变量
@@ -25,8 +26,9 @@ uchar code music1[] ={    //音乐代码，歌曲为《同一首歌》，格式为: 音符, 节拍, 音
 0x21,0x10,0x22,0x10,
 0x23,0x10,0x23,0x08,
 0x00,0x00};
-uchar pd[]={1,2,3,4,5,6,7,8};
-uchar table[10]={0x97,0xcf,0xe7,0x85,0xef,0xc7,0xa5,0xbd,0xb5,0xad};
+uchar code table[10]={0x97,0xcf,0xe7,0x85,0xef,0xc7,0xa5,0xbd,0xb5,0xad};
+uchar pd[]={1,2,3,4,5,6,7,8};//初始化密码
+uchar temp_pd[8];
 uchar display=0;
 
 char h1,h2,m1,m2,s1,s2;
@@ -41,11 +43,18 @@ uchar pd_pos=0;
 uchar pd_in[8];
 uchar flag_pd_right=0;
 
+
+uchar admin=0;
+uchar admin_time=0;
+
 uchar counter=0;
 
 uchar timecounter=0;
 uchar flag_pwm=0;
 
+uchar ch_pos=0;
+uchar flag_wait_ch=0;
+uchar temp_pos=0;
 /*回调函数
 */
 
@@ -60,7 +69,7 @@ void My1S_callback(){
         SetDisplayerArea(0,7);				       
 	    Seg7Print(h1,h2,10,m1,m2,10,s1,s2);
     }
-    else{
+    else if(display==1){
         if(pd_pos==0){
             SetDisplayerArea(0,1);
             Seg7Print(0x0a,0x0a,0,0,0,0,0,0);
@@ -68,18 +77,26 @@ void My1S_callback(){
             SetDisplayerArea(0,pd_pos);
             Seg7Print(pd_in[0],pd_in[1],pd_in[2],pd_in[3],pd_in[4],pd_in[5],pd_in[6],pd_in[7]);
         }
+    }else{
+        if(ch_pos==0){
+            SetDisplayerArea(0,1);
+            Seg7Print(0x0a,0x0a,0,0,0,0,0,0);
+        }else{
+            SetDisplayerArea(0,ch_pos);
+            Seg7Print(temp_pd[0],temp_pd[1],temp_pd[2],temp_pd[3],temp_pd[4],temp_pd[5],temp_pd[6],temp_pd[7]);
+        }
     }
-    if(flag_pwm==1){
-        SetPWM(0,30,0,0);
-        flag_pwm=0;
-    }
+    // if(flag_pwm==1){
+    //     SetPWM(0,30,0,0);
+    //     flag_pwm=0;
+    // }
 
 
 
     //deadlock 逻辑
     if(counter==3){
         counter=0;
-        SetBeep(3500,100);
+        // SetBeep(3500,100);
         deadlock=1;//上锁
     }
     if(deadlock){
@@ -112,19 +129,51 @@ void My1S_callback(){
         }else{
             //如果密码正确
             SetPWM(20,30,0,0);
-            flag_pwm=1;
-            SetMusic(100,0xFC,music1,sizeof(music1),enumMscNull);
+
+            // SetMusic(100,0xFC,music1,sizeof(music1),enumMscNull);
             display=0;//显示时间
             pd_pos=0;
             flag_wait_pd=0;//等待
             //把密码清零,方便后续显示
+            admin=1;//标志特权位
         }
+    }
+
+
+
+    //修改密码逻辑
+    if(admin==1){
+        admin_time++;
+        if(admin_time==180){
+            admin=0;
+            admin_time=0;//只有三分钟时间修改密码
+            SetPWM(0,30,0,0);//三分钟后关闭电机
+            display=0;
+            ch_pos=0;
+            temp_pos=0;
+        }
+    }
+    if(ch_pos==8){
+        for(;temp_pos<10;temp_pos++)
+        pd[temp_pos]=temp_pd[temp_pos];
+        temp_pos=0;
+        ch_pos=0;
+        admin=0;
+        display=0;//显示时间
+        // Uart1Print(pd,8);//把pd中的值看看
     }
 }
 
+
+
+
+
+
+
+
 void MyIR_CB(){
     unsigned char rxd=IRarr[3];
-    SetBeep(1500,20);
+    // SetBeep(1500,20);
     if(deadlock==0){
         if(flag_wait_pd==0){
             if(rxd==0x5d){
@@ -153,6 +202,25 @@ void MyIR_CB(){
                 pd_in[pd_pos++]=temp;
             }
         }
+        if(admin==1){
+            if(flag_wait_ch==0){
+                if(rxd==0x1f){
+                    flag_wait_ch=1;
+                    display=2;//此时显示输入密码
+                }
+            }else{
+                if(ch_pos!=8){
+                    unsigned char temp=0;
+                    for(temp=0;temp<10;temp++){
+                        if(table[temp]==rxd){
+                            break;
+                        }
+                    }
+                    if(temp!=10)
+                    temp_pd[ch_pos++]=temp;
+                }
+            }
+        }
     }
 }
 
@@ -178,6 +246,7 @@ int main(){
     /*开始:显示当前时间
     */
     DS1302Init(InitTime);
+    // Uart1Init(1200);
     BeepInit();
 	DisplayerInit();
     MusicPlayerInit();
@@ -197,3 +266,6 @@ int main(){
 }
 
 //或许根本没有什么事件,只是每隔一段时间检查一下,或许是使用中断
+
+// 0000 0111
+// 1111 1000 0001 1111
